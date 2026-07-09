@@ -124,16 +124,26 @@
         !! change this you feel energetic. Instead of no-flux at the bottom we
         !! have w(0) = 0 (different BC for tri-diag system)
         do i=1,nx
-          w(i,j,1,nnew)=( w(i,j,1,nnew)  +DC(i,2)*(FC(i,1)-min(WC(i,1),0.))
+          DC(i,1)=( w(i,j,1,nnew) +DC(i,2)*(FC(i,1)-min(WC(i,1),0.))
      &                         )/( 0.5*(Hz(i,j,2)+Hz(i,j,1))
      &                                       +FC(i,1)+max(WC(i,1),0.)
      &                              -CF(i,1)*(FC(i,1)-min(WC(i,1),0.))
      &                                                               )
+          !! The tri-diag solution is a velocity, but everything
+          !! downstream (flux translation, nhmg projection, and the
+          !! reconversion after it) expects dz*w. Store w back in
+          !! dz*w form, mirroring the u,v solves below.
+          w(i,j,1,nnew)=DC(i,1)*0.5*(Hz(i,j,2)+Hz(i,j,1))
         enddo
-        do k=2,nz,+1          !--> backsubstitution for w
+        do k=2,nz-1           !--> backsubstitution for w
           do i=1,nx
-            w(i,j,k,nnew)=DC(i,k) +CF(i,k-1)*w(i,j,k-1,nnew)
+            DC(i,k)=DC(i,k) +CF(i,k-1)*DC(i,k-1)
+            w(i,j,k,nnew)=DC(i,k)*0.5*(Hz(i,j,k+1)+Hz(i,j,k))
           enddo
+        enddo
+        do i=1,nx             !--> surface w-point: half cell
+          DC(i,nz)=DC(i,nz) +CF(i,nz-1)*DC(i,nz-1)
+          w(i,j,nz,nnew)=DC(i,nz)*0.5*Hz(i,j,nz)
         enddo
         !------- end computing of w(:,:,:,nnew) -----
 
